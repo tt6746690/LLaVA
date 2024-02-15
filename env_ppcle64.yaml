@@ -1,0 +1,16 @@
+name: llava
+channels:
+    - conda-forge
+    - pytorch
+dependencies:
+    - python=3.10
+    - jupyter
+    - nb_conda
+    - openblas
+    - pillow # for compiling torchvision from source
+    - Cython # for compiling torchvision from source
+    # move from pip to conda for ppc64le arch.
+    # various issues with installing these packages using pip
+    - pyarrow
+    - matplotlib
+    - tensorboard
