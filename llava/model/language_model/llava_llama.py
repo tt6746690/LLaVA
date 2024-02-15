@@ -88,6 +88,9 @@ class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
                 image_sizes
             )
 
+        if inputs_embeds is not None:
+            print('LlavaLlamaForCausalLM.forward: inputs_embeds.shape:', inputs_embeds.shape)
+
         return super().forward(
             input_ids=input_ids,
             attention_mask=attention_mask,
