@@ -201,8 +201,9 @@ class LlavaMetaForCausalLM(ABC):
         else:
             image_features = self.encode_images(images)
 
-        print('[llava_arch.LlavaMetaForCausalLM.prepare_inputs_labels_for_multimodal] images:', images.shape)
-        print('[llava_arch.LlavaMetaForCausalLM.prepare_inputs_labels_for_multimodal] image_features:', image_features.shape)
+        # wpq
+        # print('[llava_arch.LlavaMetaForCausalLM.prepare_inputs_labels_for_multimodal] images:', images.shape)
+        # print('[llava_arch.LlavaMetaForCausalLM.prepare_inputs_labels_for_multimodal] image_features:', image_features.shape)
 
         # TODO: image start / end is not implemented here to support pretraining.
         if getattr(self.config, 'tune_mm_mlp_adapter', False) and getattr(self.config, 'mm_use_im_start_end', False):
@@ -244,7 +245,8 @@ class LlavaMetaForCausalLM(ABC):
                 continue
 
             image_token_indices = [-1] + torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0].tolist() + [cur_input_ids.shape[0]]
-            print('[llava_arch.LlavaMetaForCausalLM.prepare_inputs_labels_for_multimodal] image_token_indices:', image_token_indices)
+            # wpq
+            # print('[llava_arch.LlavaMetaForCausalLM.prepare_inputs_labels_for_multimodal] image_token_indices:', image_token_indices)
             cur_input_ids_noim = []
             cur_labels = labels[batch_idx]
             cur_labels_noim = []
