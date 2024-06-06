@@ -74,6 +74,8 @@ class DataArguments:
     is_multimodal: bool = False
     image_folder: Optional[str] = field(default=None)
     image_aspect_ratio: str = 'square'
+    # wpq
+    train_size: Optional[int] = field(default=None)
 
 
 @dataclass
@@ -663,6 +665,9 @@ class LazySupervisedDataset(Dataset):
                  data_args: DataArguments):
         super(LazySupervisedDataset, self).__init__()
         list_data_dict = json.load(open(data_path, "r"))
+
+        if data_args.train_size is not None:
+            list_data_dict = list_data_dict[:data_args.train_size]
 
         rank0_print("Formatting inputs...Skip in lazy mode")
         self.tokenizer = tokenizer

@@ -1,0 +1,13 @@
+name: llava
+channels:
+  - https://aws-ml-conda.s3.us-west-2.amazonaws.com
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pytorch=2
+  - pytorch-cuda=12.1
+  - torchvision
+  - jupyterlab
+  - nb_conda
