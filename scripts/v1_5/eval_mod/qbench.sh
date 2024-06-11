@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [ "$1" = "dev" ]; then
     echo "Evaluating in 'dev' split."
 elif [ "$1" = "test" ]; then

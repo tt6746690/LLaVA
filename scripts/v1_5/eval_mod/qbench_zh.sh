@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [ "$1" = "dev" ]; then
     ZH_SPLIT="验证集"
     echo "Evaluating in 'dev' split."

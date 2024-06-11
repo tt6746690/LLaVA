@@ -1,7 +1,8 @@
 #!/bin/bash
 
 
-DATA_DIR=/fsx/wpq/github/metasummer2024/external/LLaVA/data
+DATA_DIR=/fsx/wpq/github/metasummer2024/external/LLaVA/playground/data
+mkdir -p $DATA_DIR
 
 echo "Downloading COCO dataset..."
 mkdir -p "$DATA_DIR/coco"
@@ -75,5 +76,11 @@ unzip questions1.2.zip -d .
 ln -s ../../gqa/images/ . # already downloaded the images.
 # download evaluation script: https://cs.stanford.edu/people/dorarad/gqa/evaluate.html
 wget -O eval.zip https://nlp.stanford.edu/data/gqa/eval.zip
-
+unzip eval.zip -d .
 rm sceneGraphs.zip questions1.2.zip eval.zip
+# replace eval.py since the GQA dataset has some missing assets in v1.2 release.
+mv eval.py eval_default.py 
+wget -O eval.py https://gist.githubusercontent.com/haotian-liu/db6eddc2a984b4cbcc8a7f26fd523187/raw/1ac7a1aab0c631845c645722082789977850ace0/1_eval.py
+
+
+

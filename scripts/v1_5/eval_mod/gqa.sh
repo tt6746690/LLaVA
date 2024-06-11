@@ -1,20 +1,22 @@
 #!/bin/bash
 
+set -e
+
 gpu_list="${CUDA_VISIBLE_DEVICES:-0}"
 IFS=',' read -ra GPULIST <<< "$gpu_list"
 
 CHUNKS=${#GPULIST[@]}
 
-CKPT="llava-v1.5-7b"
 SPLIT="llava_gqa_testdev_balanced"
+CKPT=$1
 GQADIR="./data/eval/gqa"
 
 for IDX in $(seq 0 $((CHUNKS-1))); do
     CUDA_VISIBLE_DEVICES=${GPULIST[$IDX]} python -m llava.eval.model_vqa_loader \
-        --model-path liuhaotian/llava-v1.5-7b \
+        --model-path $CKPT \
         --question-file ./data/eval/gqa/$SPLIT.jsonl \
         --image-folder ./data/eval/gqa/images \
-        --answers-file ./data/eval/gqa/answers/$SPLIT/$CKPT/${CHUNKS}_${IDX}.jsonl \
+        --answers-file $CKPT/eval/gqa/$SPLIT/answers/${CHUNKS}_${IDX}.jsonl \
         --num-chunks $CHUNKS \
         --chunk-idx $IDX \
         --temperature 0 \
@@ -23,17 +25,16 @@ done
 
 wait
 
-output_file=./data/eval/gqa/answers/$SPLIT/$CKPT/merge.jsonl
+output_file=$CKPT/eval/gqa/$SPLIT/answers/merge.jsonl
 
 # Clear out the output file if it exists.
 > "$output_file"
-
+ 
 # Loop through the indices and concatenate each file.
 for IDX in $(seq 0 $((CHUNKS-1))); do
-    cat ./data/eval/gqa/answers/$SPLIT/$CKPT/${CHUNKS}_${IDX}.jsonl >> "$output_file"
+    cat $CKPT/eval/gqa/$SPLIT/answers/${CHUNKS}_${IDX}.jsonl >> "$output_file"
 done
 
-python scripts/convert_gqa_for_eval.py --src $output_file --dst $GQADIR/testdev_balanced_predictions.json
+python scripts/convert_gqa_for_eval.py --src $output_file --dst $CKPT/eval/gqa/$SPLIT/testdev_balanced_predictions.json
 
-cd $GQADIR
-python eval.py --tier testdev_balanced
+python $GQADIR/eval.py --tier $GQADIR/testdev_balanced --predictions $CKPT/eval/gqa/$SPLIT/testdev_balanced_predictions.json

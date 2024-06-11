@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 SPLIT="mmbench_dev_20230712"
 
 python -m llava.eval.model_vqa_mmbench \
