@@ -24,3 +24,4 @@ deepspeed==0.12.6
 ninja
 wandb
 flash-attn
+evalai

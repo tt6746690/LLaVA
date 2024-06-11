@@ -846,6 +846,11 @@ def train(attn_implementation=None):
         )
     model.config.use_cache = False
 
+    # set to default values, otherwise raises `.validate` error on saving.
+    model.generation_config.temperature=1.
+    model.generation_config.top_p=1.
+
+
     if model_args.freeze_backbone:
         model.model.requires_grad_(False)
 

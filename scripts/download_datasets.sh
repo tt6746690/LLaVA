@@ -47,5 +47,33 @@ unzip images.zip -d .
 unzip images2.zip -d .
 rm images.zip images2.zip
 
-
 tree -L 2 $DATA_DIR
+
+
+echo "Setup llava eval datasets..."
+mkdir -p "$DATA_DIR/eval"
+cd "$DATA_DIR/eval"
+wget -O eval.zip https://www.dropbox.com/s/povzrf0q14e8nn9/llava_eval.zip?dl=1
+unzip eval.zip -d .
+rm eval.zip
+
+
+echo "Setup eval/vqav2 dataset..."
+cd "$DATA_DIR/eval/vqav2"
+wget -O test2015.zip http://images.cocodataset.org/zips/test2015.zip
+unzip test2015.zip -d .
+rm test2015.zip
+
+
+echo "Setup eval/gqa dataset..."
+cd "$DATA_DIR/eval/gqa"
+# download data: https://cs.stanford.edu/people/dorarad/gqa/download.html
+wget -O sceneGraphs.zip https://downloads.cs.stanford.edu/nlp/data/gqa/sceneGraphs.zip
+unzip sceneGraphs.zip -d .
+wget -O questions1.2.zip https://downloads.cs.stanford.edu/nlp/data/gqa/questions1.2.zip
+unzip questions1.2.zip -d .
+ln -s ../../gqa/images/ . # already downloaded the images.
+# download evaluation script: https://cs.stanford.edu/people/dorarad/gqa/evaluate.html
+wget -O eval.zip https://nlp.stanford.edu/data/gqa/eval.zip
+
+rm sceneGraphs.zip questions1.2.zip eval.zip
