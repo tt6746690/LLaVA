@@ -9,13 +9,13 @@ CHUNKS=${#GPULIST[@]}
 
 SPLIT="llava_gqa_testdev_balanced"
 CKPT=$1
-GQADIR="./data/eval/gqa"
+GQADIR="./playground/data/eval/gqa"
 
 for IDX in $(seq 0 $((CHUNKS-1))); do
     CUDA_VISIBLE_DEVICES=${GPULIST[$IDX]} python -m llava.eval.model_vqa_loader \
         --model-path $CKPT \
-        --question-file ./data/eval/gqa/$SPLIT.jsonl \
-        --image-folder ./data/eval/gqa/images \
+        --question-file $GQADIR/$SPLIT.jsonl \
+        --image-folder $GQADIR/images \
         --answers-file $CKPT/eval/gqa/$SPLIT/answers/${CHUNKS}_${IDX}.jsonl \
         --num-chunks $CHUNKS \
         --chunk-idx $IDX \
