@@ -20,3 +20,5 @@ python scripts/convert_mmbench_for_submission.py \
     --upload-dir $CKPT/eval/mmbench \
     --experiment $SPLIT
 
+
+python scripts/copy_predictions.py $CKPT ./playground/answers_upload

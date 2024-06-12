@@ -141,11 +141,33 @@ wget -O MME_Benchmark.zip https://www.dropbox.com/scl/fi/n8hzkfb55jeqhiicbkdl2/M
 unzip MME_Benchmark.zip
 rm MME_Benchmark.zip
 # 2. evaluation tools
-wget https://github.com/BradyFU/Awesome-Multimodal-Large-Language-Models/raw/Evaluation/tools/eval_tool.zip
-unzip eval_tool.zip
-rm eval_tool.zip
+mv MME_Benchmark_release_version/eval_tool .
+# 3. some images need to be downloaded manually.
+cd MME_Benchmark_release_version
+# 3.1 landmark
+cd landmark/images
+wget -O download_landmark_fixed.py https://www.dropbox.com/scl/fi/oafadikxadkkhsw9j0pqh/download_landmark.py?rlkey=1ms3b8z68cb7era4taudwz323&dl=1
+python download_landmark_fixed.py
+cd ../../
+# 3.2 artwork. download Toy artwork dataset from https://deepart.hkust.edu.hk/ART500K/art500k.html. and use the following to pick the 200 subset. upload to dropbox
+# mkdir artwork200
+# rsync -av mrs:/fsx/wpq/github/metasummer2024/external/LLaVA/playground/data/eval/MME/MME_Benchmark_release_version/artwork/images/image_list.txt ~/Downloads/image_list.txt
+# while read -r filename; do
+#     cp "toy_dataset/$filename" "artwork200/"
+# done < image_list.txt
+wget -O artwork200.zip https://www.dropbox.com/scl/fi/ggs1novmyoj9dhfqmrprw/artwork200.zip?rlkey=2j5n6r8mclhqbzqhfzjf50ekp&dl=1
+unzip artwork200.zip
+mv artwork200/*.jpg .
+rmdir artwork200
+rm  artwork200.zip
+rm -r __MACOSX
+
 
 
 echo "Setup eval/mmbench dataset..."
 cd "$DATA_DIR/eval/mmbench"
 wget https://download.openmmlab.com/mmclassification/datasets/mmbench/mmbench_dev_20230712.tsv
+
+
+may be a slight difference (such as resolution) between the images download now.
+
