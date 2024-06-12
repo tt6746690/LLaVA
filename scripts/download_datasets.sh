@@ -142,12 +142,15 @@ unzip MME_Benchmark.zip
 rm MME_Benchmark.zip
 # 2. evaluation tools
 mv MME_Benchmark_release_version/eval_tool .
+mv convert_answer_to_mme.py convert_answer_to_mme_default.py
+wget -O convert_answer_to_mme.py https://www.dropbox.com/scl/fi/jdfz36yyak6um4esoe7od/convert_answer_to_mme_wpq.py?rlkey=xn3n1pt19n0xumzcaza1n6bv9&dl=1 # some modification due to different file structure used to store results.
 # 3. some images need to be downloaded manually.
 cd MME_Benchmark_release_version
 # 3.1 landmark
 cd landmark/images
 wget -O download_landmark_fixed.py https://www.dropbox.com/scl/fi/oafadikxadkkhsw9j0pqh/download_landmark.py?rlkey=1ms3b8z68cb7era4taudwz323&dl=1
 python download_landmark_fixed.py
+wget -O 03d5e3bfc958be38.jpg https://upload.wikimedia.org/wikipedia/commons/2/2a/Museo_nazionale_ferroviario_di_Pietrarsa_-_locomotiva_899.006.jpg
 cd ../../
 # 3.2 artwork. download Toy artwork dataset from https://deepart.hkust.edu.hk/ART500K/art500k.html. and use the following to pick the 200 subset. upload to dropbox
 # mkdir artwork200
