@@ -5,6 +5,8 @@ set -e
 gpu_list="${CUDA_VISIBLE_DEVICES:-0}"
 IFS=',' read -ra GPULIST <<< "$gpu_list"
 
+echo $gpu_list
+
 CHUNKS=${#GPULIST[@]}
 
 SPLIT="llava_vqav2_mscoco_test-dev2015"
@@ -13,7 +15,7 @@ EVAL_DATA_DIR=./playground/data/eval/vqav2
 
 for IDX in $(seq 0 $((CHUNKS-1))); do
     CUDA_VISIBLE_DEVICES=${GPULIST[$IDX]} python -m llava.eval.model_vqa_loader \
-        --model-path $CKPT_PATH \
+        --model-path $CKPT \
         --question-file $EVAL_DATA_DIR/$SPLIT.jsonl \
         --image-folder $EVAL_DATA_DIR/test2015 \
         --answers-file $CKPT/eval/vqav2/$SPLIT/answers/${CHUNKS}_${IDX}.jsonl \
@@ -23,7 +25,7 @@ for IDX in $(seq 0 $((CHUNKS-1))); do
         --conv-mode vicuna_v1 &
 done
 
-# wait
+wait
 
 output_file=$CKPT/eval/vqav2/$SPLIT/answers/merge.jsonl
 
