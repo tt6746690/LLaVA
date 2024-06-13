@@ -103,9 +103,9 @@ unzip -q test.zip # holds the test images
 echo "Setup eval/scienceqa dataset..."
 cd "$DATA_DIR/eval/scienceqa"
 # download from github: https://github.com/lupantech/ScienceQA?tab=readme-ov-file
-# 1. problems
+# 1. questions
 wget https://raw.githubusercontent.com/lupantech/ScienceQA/main/data/scienceqa/problems.json
-# 2. test images https://github.com/lupantech/ScienceQA/blob/main/tools/download.sh
+# 2. images https://github.com/lupantech/ScienceQA/blob/main/tools/download.sh
 wget https://scienceqa.s3.us-west-1.amazonaws.com/images/test.zip
 unzip test.zip -d images/
 rm test.zip
@@ -152,7 +152,8 @@ wget -O download_landmark_fixed.py https://www.dropbox.com/scl/fi/oafadikxadkkhs
 python download_landmark_fixed.py
 wget -O 03d5e3bfc958be38.jpg https://upload.wikimedia.org/wikipedia/commons/2/2a/Museo_nazionale_ferroviario_di_Pietrarsa_-_locomotiva_899.006.jpg
 cd ../../
-# 3.2 artwork. download Toy artwork dataset from https://deepart.hkust.edu.hk/ART500K/art500k.html. and use the following to pick the 200 subset. upload to dropbox
+# 3.2 artwork. 
+# download Toy artwork dataset from https://deepart.hkust.edu.hk/ART500K/art500k.html. and use the following to pick the 200 subset. upload to dropbox
 # mkdir artwork200
 # rsync -av mrs:/fsx/wpq/github/metasummer2024/external/LLaVA/playground/data/eval/MME/MME_Benchmark_release_version/artwork/images/image_list.txt ~/Downloads/image_list.txt
 # while read -r filename; do
@@ -172,5 +173,64 @@ cd "$DATA_DIR/eval/mmbench"
 wget https://download.openmmlab.com/mmclassification/datasets/mmbench/mmbench_dev_20230712.tsv
 
 
-may be a slight difference (such as resolution) between the images download now.
+echo "Setup eval/seed_bench dataset..."
+cd "$DATA_DIR/eval/seed_bench"
+# https://github.com/AILab-CVC/SEED-Bench/blob/main/DATASET.md
+# 1. CC3M (1-9) is part of huggingface's repo
+git lfs install
+git clone https://huggingface.co/datasets/AILab-CVC/SEED-Bench
+cd Seed-Bench
+unzip SEED-Bench-image.zip
+rm SEED-Bench-image.zip
+cat v1_video.zip.??? > v1_video.zip
+unzip v1_video.zip
+rm v1_video.zip v1_video.zip.*
+cp SEED-Bench.json SEED-Bench.py ..
+mv SEED-Bench-image ..
+cd ..
+# 3 tasks contain videos which are not in the huggingface repo.
+# more details on how to download videosfor the 3 tasks: https://github.com/AILab-CVC/SEED-Bench/blob/main/DATASET.md 
+mkdir videos # contains raw videos
+mkdir SEED-Bench-video-image # extract video frame from middle from raw videos
+# 3.1 Something-Something v2 (10-action recognition) 1740 videos: https://developer.qualcomm.com/software/ai-datasets/something-something
+# info: file:///Users/wpq/Downloads/20bn-something-something_download_instructions_-_091622.pdf
+# download page: https://developer.qualcomm.com/software/ai-datasets/something-something
+# once downloaded 20 shards of the tar file, combine and decompress, pick the 1509 video subset, zip, upload to dropbox.
+# for z in *.zip; do unzip "$z"; done
+# cat 20bn-something-something-v2-?? > 20bn-something-something-v2
+# cat 20bn-something-something-v2 | tar -xvzf -
+# curl https://huggingface.co/datasets/AILab-CVC/SEED-Bench/raw/main/SEED-Bench.json
+# python -c "import json; data = json.load(open('SEED-Bench.json', 'r')); l = [x['data_id'] for x in data['questions'] if x['question_type_id'] == 10]; open('subset.txt', 'w').write('\n'.join(l))"
+# mkdir -p something-something-v2-seed-subset
+# cat subset.txt | xargs -I {} cp 20bn-something-something-v2/{} something-something-v2-seed-subset/
+wget -O 20bn-something-something-v2.zip https://www.dropbox.com/scl/fi/gfpwsx3o0n3no9nn3qe3r/something-something-v2-seed-subset.zip?rlkey=my1u6ota48j67zgigh5am2k89&dl=1
+unzip 20bn-something-something-v2.zip
+rm 20bn-something-something-v2.zip
+rm -r __MACOSX/
+mv 20bn-something-something-v2/ videos/
+# 3.2 Epic-kitchen 100 (11-action prediction) 138 long videos
+# the scripts are too slow: https://github.com/epic-kitchens/epic-kitchens-download-scripts.git
+# use Transmission on academic torrents instead. the 138 long videos took 200gb!
+# EPIC-KITCHENS 2018 (instead of 100!) https://academictorrents.com/details/d08f4591d1865bbe3436d1eb25ed55aae8b8f043/tech&filelist=1 
 
+
+echo "Setup eval/mm-vet dataset..."
+cd "$DATA_DIR/eval/mm-vet"
+# 1. data
+wget https://github.com/yuweihao/MM-Vet/releases/download/v1/mm-vet.zip
+unzip mm-vet.zip
+rm mm-vet.zip
+mv mm-vet/* .
+rm .DS_Store
+rmdir mm-vet
+# 2. evaluation code (gpt-4 based)
+wget https://raw.githubusercontent.com/yuweihao/MM-Vet/main/mm-vet_evaluator.py
+
+
+
+echo "Setup eval/llava-bench-in-the-wild dataset..."
+cd "$DATA_DIR/eval/llava-bench-in-the-wild"
+# 1. image / questions
+git clone https://huggingface.co/datasets/liuhaotian/llava-bench-in-the-wild
+mv llava-bench-in-the-wild/* .
+rm -r llava-bench-in-the-wild
