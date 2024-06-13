@@ -214,6 +214,13 @@ mv 20bn-something-something-v2/ videos/
 # EPIC-KITCHENS 2018 (instead of 100!) https://academictorrents.com/details/d08f4591d1865bbe3436d1eb25ed55aae8b8f043/tech&filelist=1 
 
 
+# 3.3 Breakfast
+# - info: https://serre-lab.clps.brown.edu/resource/breakfast-actions-dataset/
+# - download: https://drive.google.com/file/d/1jgSoof1AatiDRpGY091qd4TEKF-BUt6I/view
+
+
+
+
 echo "Setup eval/mm-vet dataset..."
 cd "$DATA_DIR/eval/mm-vet"
 # 1. data
