@@ -1,6 +1,7 @@
 results/
 data/
 playground/answers_upload/
+eval_server_results.csv
 
 *.out
 

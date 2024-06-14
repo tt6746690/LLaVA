@@ -21,6 +21,7 @@ python scripts/convert_vizwiz_for_submission.py \
 
 
 # submit with evalai-cli
-conda activate evalai
+source /fsx/wpq/.profile_local.sh
+conda activate evalai-cli
 echo -e "y\n$CKPT\n\n\n\n" | evalai challenge 2185 phase 4336 submit --file $CKPT/eval/vizwiz/answers_upload.json  --large --private
 

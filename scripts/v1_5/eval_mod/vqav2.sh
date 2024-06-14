@@ -43,6 +43,7 @@ python scripts/convert_vqav2_for_submission.py --src "$output_file" --dst $CKPT/
 
 
 # submit with evalai-cli
-conda activate evalai
+source /fsx/wpq/.profile_local.sh
+conda activate evalai-cli
 echo -e "y\n$CKPT\n\n\n\n" | evalai challenge 830 phase 1793 submit --file $CKPT/eval/vqav2/$SPLIT/answers_upload.json  --large --private
 
