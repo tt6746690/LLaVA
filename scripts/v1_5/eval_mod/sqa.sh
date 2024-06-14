@@ -6,7 +6,7 @@ CKPT=$1
 EVAL_DATA_DIR=./playground/data/eval/scienceqa
 
 python -m llava.eval.model_vqa_science \
-    --model-path liuhaotian/llava-v1.5-13b \
+    --model-path $1 \
     --question-file $EVAL_DATA_DIR/llava_test_CQM-A.json \
     --image-folder $EVAL_DATA_DIR/images/test \
     --answers-file $CKPT/eval/scienceqa/answers.jsonl \

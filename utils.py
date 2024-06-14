@@ -97,6 +97,7 @@ class TaskResult:
                    'random': {'F1 score': None},}
         s = self.read_file('bash_script_log.txt')
         if s is None: return metrics
+        if 'Category: popular' not in s: return metrics
         s = s[s.index('Category: popular'):]
         for category in s.split("===================================="):
             if "Category:" in category:
@@ -125,6 +126,7 @@ class TaskResult:
         metrics = {'perception': {'total_score': None}, 'cognition': {'total_score': None}}
         s = self.read_file('bash_script_log.txt') 
         if s is None: return metrics
+        if not ('Perception' in s and 'Cognition' in s): return metrics
         l = s.split('===========')
         pattern = r"(\w+(?:\s+\w+)*)\s+score:\s+(\d+\.\d+)"
         for i, category in [(2, 'perception'), (4, 'cognition')]:
@@ -252,8 +254,6 @@ def get_eval_results(save_dirs, metric_names):
 
 
 
-
-
 def download_eval_server_results(eval_server_info_file='eval_server_results.csv', verbose=False):
     """Go to eval submission site to get the urls for the result and put into `eval_server_info_file`
         then this function will write the result to the eval folder of the runs.
@@ -268,12 +268,15 @@ def download_eval_server_results(eval_server_info_file='eval_server_results.csv'
         if not os.path.isdir(eval_dir):
             raise ValueError(f"{eval_dir} does not exists.")
         try:
+            fp = os.path.join(eval_dir, 'eval_server_result.json')
+            if os.path.isfile(fp):
+                continue
             response = urllib.request.urlopen(d['url'])
-            with open(os.path.join(eval_dir, 'eval_server_result.json'), 'w') as f:
+            with open(fp, 'w') as f:
                 json.dump(json.loads(response.read()), f)
         except Exception as e:
             print(e)
-        print(f'Downloed {d["url"]}\n\t->{eval_dir}')
+        print(f'Download {d["url"]}\n\t->{eval_dir}')
 
 
 def copy_answers_for_upload(result_dir='./results', upload_dir='./playground/data/answers_upload', pattern='mmbench_dev_*.xlsx'):
