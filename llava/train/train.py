@@ -803,6 +803,7 @@ def train(attn_implementation=None):
     # wpq: save args to a json file
     from dataclasses import asdict
     with training_args.main_process_first(local=False, desc=f"Saving args to `{training_args.output_dir+'.args.json'}`"):
+        os.makedirs(training_args.output_dir, exist_ok=True)
         args_dict_path = os.path.join(training_args.output_dir, 'args.json')
         with open(args_dict_path, 'w') as f:
             json.dump({

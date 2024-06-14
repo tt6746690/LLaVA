@@ -1,4 +1,5 @@
 -e /fsx/wpq/github/metasummer2024/external/rosemary
+-e /fsx/wpq/github/metasummer2024
 transformers==4.37.2
 tokenizers==0.15.1
 sentencepiece==0.1.99

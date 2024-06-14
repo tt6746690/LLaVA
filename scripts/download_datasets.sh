@@ -212,12 +212,13 @@ mv 20bn-something-something-v2/ videos/
 # the scripts are too slow: https://github.com/epic-kitchens/epic-kitchens-download-scripts.git
 # use Transmission on academic torrents instead. the 138 long videos took 200gb!
 # EPIC-KITCHENS 2018 (instead of 100!) https://academictorrents.com/details/d08f4591d1865bbe3436d1eb25ed55aae8b8f043/tech&filelist=1 
+# then transfer 200gb file to server: rsync -avhP --inplace ~/Downloads/3h91syskeag572hl6tvuovwv4d/ mrs:/fsx/wpq/github/metasummer2024/external/LLaVA/playground/data/eval/seed_bench
+
 
 
 # 3.3 Breakfast
 # - info: https://serre-lab.clps.brown.edu/resource/breakfast-actions-dataset/
-# - download: https://drive.google.com/file/d/1jgSoof1AatiDRpGY091qd4TEKF-BUt6I/view
-
+# - download: https://drive.google.com/file/d/1jgSoof1AatiDRpGY091qd4TEKF-BUt6I/view then rsync to server: rsync -vhP --inplace ~/Downloads/BreakfastII_15fps_qvga_sync.tar.gz mrs:/fsx/wpq/github/metasummer2024/external/LLaVA/playground/data/eval/seed_bench/
 
 
 
