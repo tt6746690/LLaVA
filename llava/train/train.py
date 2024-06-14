@@ -799,6 +799,20 @@ def train(attn_implementation=None):
     local_rank = training_args.local_rank
     compute_dtype = (torch.float16 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
 
+
+    # wpq: save args to a json file
+    from dataclasses import asdict
+    with training_args.main_process_first(local=False, desc=f"Saving args to `{training_args.output_dir+'.args.json'}`"):
+        args_dict_path = os.path.join(training_args.output_dir, 'args.json')
+        with open(args_dict_path, 'w') as f:
+            json.dump({
+                'model_args': asdict(model_args),
+                'data_args': asdict(data_args),
+                'training_args': asdict(training_args),
+            }, f, indent=4)
+        print(f'Saving args dict to {args_dict_path}')
+
+
     bnb_model_from_pretrained_args = {}
     if training_args.bits in [4, 8]:
         from transformers import BitsAndBytesConfig

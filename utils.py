@@ -1,9 +1,10 @@
 import os
 import json
 import re
+from typing import Callable
 import pandas as pd
 from dataclasses import dataclass
-
+from functools import cached_property
 
 
 class TaskResult:
@@ -26,24 +27,13 @@ class TaskResult:
             else:
                 return s
 
-    def get_metrics(self, fetch_metrics_info_list=None):
+    @cached_property
+    def metrics(self):
         method_name = f'get_metrics_{self.task_name}'
         if not getattr(self, method_name):
             raise ValueError(f'{method_name} not supported.')
         metrics = getattr(self, method_name)()
-        if fetch_metrics_info_list is not None:
-            from rosemary import dict_iterated_getitem
-            try:
-                metrics = {
-                    x.metric_name: dict_iterated_getitem(metrics, x.keys_to_retrieve_value) 
-                    for x in fetch_metrics_info_list
-                    if x.task_name == self.task_name
-                }
-            except:
-                pass
-            return metrics
-        else:
-            return metrics
+        return metrics
 
         
     def get_metrics_gqa(self):
@@ -180,10 +170,20 @@ class TaskResult:
 class FetchMetricInfo:
     task_name: str
     keys_to_retrieve_value: tuple
-    metric_name: str
+    name: str
 
+@dataclass
+class FetchConfigInfo:
+    keys_to_retrieve_value: tuple
+    name: str
+    modification_fn: Callable
 
-fetch_metric_info_list = [
+@dataclass
+class FetchConstantInfo:
+    keys_to_retrieve_value: tuple
+    name: str
+
+fetch_metrics_info_list = [
     FetchMetricInfo('vqav2', ('overall'), 'VQAv2/acc'),
     FetchMetricInfo('gqa', ('accuracy'), 'GQA/acc'),
     FetchMetricInfo('vizwiz', ('overall'), 'VizWiz/acc'),
@@ -206,33 +206,71 @@ fetch_metric_info_list = [
 ]
 
 
+def get_image_resolution_from_vision_tower(x):
+    if x.endswith('clip-vit-large-patch14'):
+        return '224'
+    else:
+        return  re.search(r"(\d+)$", x).group(1) if 'clip' in x else None
+    
+
+fetch_config_info_list = [
+    FetchConfigInfo(('model_args', 'model_name_or_path'), 'Base LM', lambda x: os.path.basename(x)),
+    FetchConfigInfo(('model_args', 'vision_tower'), 'Resolution', get_image_resolution_from_vision_tower),
+    FetchConfigInfo(('model_args', 'mm_projector_type'), 'Projector', None),
+]
+
+
+fetch_constant_info_list = [
+    FetchConstantInfo(('run_name',), 'run_name')
+]
+
+
 class ModelResult:
 
-    task_names = sorted(set(x.task_name for x in fetch_metric_info_list))
+    task_names = sorted(set(x.task_name for x in fetch_metrics_info_list if isinstance(x, FetchMetricInfo)))
 
     def __init__(self, save_dir, run_name=None):
         self.save_dir = save_dir
         self.run_name = run_name if run_name is not None else self.save_dir
 
-    def get_result(self, metric_names=None):
-                
         eval_dir = os.path.join(self.save_dir, 'eval')
+        self.task_results = {k: TaskResult(os.path.join(eval_dir, k)) for k in self.task_names}
 
-        dfs = []
-        for task_name in self.task_names:
-            task_save_dir = os.path.join(eval_dir, task_name)
-            r = TaskResult(task_save_dir)
-            metrics = r.get_metrics(fetch_metric_info_list)
-            df = pd.DataFrame([list(metrics.values())], columns=list(metrics.keys()))
-            dfs.append(df)
-        
-        df = pd.concat(dfs, axis=1)
-        df = df[[x for x in metric_names if x in df.columns]]
+    @cached_property
+    def train_args(self):
+        train_args_path = os.path.join(self.save_dir, 'args.json')
+        if os.path.isfile(train_args_path):
+            with open(train_args_path, 'r') as f:
+                return json.load(f)
+        else:
+            return {}
 
+    def get_result(self, cols=None):
+        from rosemary import dict_iterated_getitem
+
+        data = {}
+        for fetch_info in fetch_metrics_info_list+fetch_config_info_list+fetch_constant_info_list:
+            if isinstance(fetch_info, FetchMetricInfo):
+                d = self.task_results[fetch_info.task_name].metrics
+            elif isinstance(fetch_info, FetchConfigInfo):
+                d = self.train_args
+            elif isinstance(fetch_info, FetchConstantInfo):
+                d = {'run_name': self.run_name}
+            else:
+                raise ValueError(f'Wrong {fetch_info}')
+            k = fetch_info.name
+            try:
+                v = dict_iterated_getitem(d, fetch_info.keys_to_retrieve_value)
+                if hasattr(fetch_info, 'modification_fn') and fetch_info.modification_fn is not None:
+                    v = fetch_info.modification_fn(v)
+            except:
+                v = None
+            data[k] = v
+        df = pd.DataFrame(data, index=[0])
+        df = df[[x for x in cols if x in df.columns]]
         if df.isnull().all().all():
             return None
 
-        df.insert(0, 'Method', self.run_name)
         return df
 
 
@@ -248,6 +286,7 @@ def get_eval_results(save_dirs, metric_names):
         dfs.append(df)
     filtered_dfs = [df.dropna(axis=1, how='all') for df in dfs] # remove nan cols
     df = pd.concat(filtered_dfs, axis=0, ignore_index=True)
+    df = df[dfs[0].columns] # preserve original column ordering
     df = df.reset_index(drop=True)
     return df
 
