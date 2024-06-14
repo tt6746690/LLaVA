@@ -2,6 +2,7 @@ import os
 import json
 import re
 import pandas as pd
+from dataclasses import dataclass
 
 
 
@@ -25,11 +26,25 @@ class TaskResult:
             else:
                 return s
 
-    def get_metrics(self):
+    def get_metrics(self, fetch_metrics_info_list=None):
         method_name = f'get_metrics_{self.task_name}'
         if not getattr(self, method_name):
             raise ValueError(f'{method_name} not supported.')
-        return getattr(self, method_name)()
+        metrics = getattr(self, method_name)()
+        if fetch_metrics_info_list is not None:
+            from rosemary import dict_iterated_getitem
+            try:
+                metrics = {
+                    x.metric_name: dict_iterated_getitem(metrics, x.keys_to_retrieve_value) 
+                    for x in fetch_metrics_info_list
+                    if x.task_name == self.task_name
+                }
+            except:
+                pass
+            return metrics
+        else:
+            return metrics
+
         
     def get_metrics_gqa(self):
         metrics = {'accuracy': None}
@@ -39,6 +54,7 @@ class TaskResult:
         if not match: return metrics
         metrics['accuracy'] = float(match.group(1))
         return metrics
+    
 
     def get_metrics_scienceqa(self):
         metrics = {'accuracy': None, 'accuracy(image)': None}
@@ -81,6 +97,7 @@ class TaskResult:
                    'random': {'F1 score': None},}
         s = self.read_file('bash_script_log.txt')
         if s is None: return metrics
+        s = s[s.index('Category: popular'):]
         for category in s.split("===================================="):
             if "Category:" in category:
                 lines = category.strip().split("\n")
@@ -93,12 +110,15 @@ class TaskResult:
                     "FP": fp,
                     "TN": tn,
                     "FN": fn,
-                    "Accuracy": float(re.search(r"Accuracy: ([\d\.]+)", category).group(1)),
-                    "Precision": float(re.search(r"Precision: ([\d\.]+)", category).group(1)),
-                    "Recall": float(re.search(r"Recall: ([\d\.]+)", category).group(1)),
-                    "F1 score": float(re.search(r"F1 score: ([\d\.]+)", category).group(1)),
-                    "Yes ratio": float(re.search(r"Yes ratio: ([\d\.]+)", category).group(1))
+                    "Accuracy": float(re.search(r"Accuracy: ([\d\.]+)", category).group(1))*100,
+                    "Precision": float(re.search(r"Precision: ([\d\.]+)", category).group(1))*100,
+                    "Recall": float(re.search(r"Recall: ([\d\.]+)", category).group(1))*100,
+                    "F1 score": float(re.search(r"F1 score: ([\d\.]+)", category).group(1))*100,
+                    "Yes ratio": float(re.search(r"Yes ratio: ([\d\.]+)", category).group(1)),
                 }
+        df = pd.DataFrame(metrics)
+        df['overall'] = df.mean(axis=1)
+        metrics = df.to_dict()
         return metrics
 
     def get_metrics_mme(self):
@@ -118,7 +138,8 @@ class TaskResult:
         metrics = {"overall": None}
         d = self.read_file('eval_server_result.json') 
         if d is None: return metrics
-        return d
+        metrics['overall'] = d['overall'] * 100
+        return metrics
 
     def get_metrics_seed(self):
         metrics = {'overall': None}
@@ -148,8 +169,86 @@ class TaskResult:
     def get_metrics_mmvet(self):
         metrics = {'rec': None, 'ocr': None, 'know': None, 'gen': None, 'spat': None, 'math': None, 'total': None}
         df = self.read_file('results_gpt-4-0613-cap-score-1runs.csv')
+        if df is None: return metrics
         metrics = df[['rec', 'ocr', 'know', 'gen', 'spat', 'math', 'total']].to_dict(orient='records')[0]
         return metrics
+
+        
+@dataclass
+class FetchMetricInfo:
+    task_name: str
+    keys_to_retrieve_value: tuple
+    metric_name: str
+
+
+fetch_metric_info_list = [
+    FetchMetricInfo('vqav2', ('overall'), 'VQAv2/acc'),
+    FetchMetricInfo('gqa', ('accuracy'), 'GQA/acc'),
+    FetchMetricInfo('vizwiz', ('overall'), 'VizWiz/acc'),
+    FetchMetricInfo('scienceqa', ('accuracy(image)'), 'ScienceQA/acc'),
+    FetchMetricInfo('textvqa', ('accuracy'), 'TextVQA/acc'),
+    FetchMetricInfo('pope', ('popular', 'F1 score'), 'POPE/pop'),
+    FetchMetricInfo('pope', ('adversarial', 'F1 score'), 'POPE/adv'),
+    FetchMetricInfo('pope', ('random', 'F1 score'), 'POPE/rand'),
+    FetchMetricInfo('pope', ('overall', 'F1 score'), 'POPE/F1-score'),
+    FetchMetricInfo('mme', ('perception', 'total_score'), 'MME/perception'),
+    FetchMetricInfo('mme', ('cognition', 'total_score'), 'MME/cognition'),
+    FetchMetricInfo('mme', ('perception', 'total_score'), 'MME/perception'),
+    FetchMetricInfo('mmbench', ('overall'), 'MMBench/acc'),
+    FetchMetricInfo('seed', ('overall',), 'SEED/none'),
+    FetchMetricInfo('llavabench', ('all', 'score_model/score_ref'), 'LLaVA/all'),
+    FetchMetricInfo('llavabench', ('llava_bench_complex', 'score_model/score_ref'), 'LLaVA/complex'),
+    FetchMetricInfo('llavabench', ('llava_bench_conv', 'score_model/score_ref'), 'LLaVA/conv'),
+    FetchMetricInfo('llavabench', ('llava_bench_detail', 'score_model/score_ref'), 'LLaVA/detail'),
+    FetchMetricInfo('mmvet', ('total'), 'MM-Vet/score'), # ([1-10] rated by chatgpt)*10
+]
+
+
+class ModelResult:
+
+    task_names = sorted(set(x.task_name for x in fetch_metric_info_list))
+
+    def __init__(self, save_dir, run_name=None):
+        self.save_dir = save_dir
+        self.run_name = run_name if run_name is not None else self.save_dir
+
+    def get_result(self, metric_names=None):
+                
+        eval_dir = os.path.join(self.save_dir, 'eval')
+
+        dfs = []
+        for task_name in self.task_names:
+            task_save_dir = os.path.join(eval_dir, task_name)
+            r = TaskResult(task_save_dir)
+            metrics = r.get_metrics(fetch_metric_info_list)
+            df = pd.DataFrame([list(metrics.values())], columns=list(metrics.keys()))
+            dfs.append(df)
+        
+        df = pd.concat(dfs, axis=1)
+        df = df[[x for x in metric_names if x in df.columns]]
+
+        if df.isnull().all().all():
+            return None
+
+        df.insert(0, 'Method', self.run_name)
+        return df
+
+
+
+def get_eval_results(save_dirs, metric_names):
+    dfs = []
+    for model_name, save_dir in save_dirs:
+        if not os.path.isfile(os.path.join(save_dir, 'config.json')): continue
+        if not os.path.isdir(os.path.join(save_dir, 'eval')): continue
+        r = ModelResult(save_dir, model_name)
+        df = r.get_result(metric_names)
+        if df is None: continue
+        dfs.append(df)
+    filtered_dfs = [df.dropna(axis=1, how='all') for df in dfs] # remove nan cols
+    df = pd.concat(filtered_dfs, axis=0, ignore_index=True)
+    df = df.reset_index(drop=True)
+    return df
+
 
 
 
@@ -159,7 +258,6 @@ def download_eval_server_results(eval_server_info_file='eval_server_results.csv'
     """Go to eval submission site to get the urls for the result and put into `eval_server_info_file`
         then this function will write the result to the eval folder of the runs.
     """
-    import pandas as pd
     import urllib.request
 
     df = pd.read_csv(eval_server_info_file)

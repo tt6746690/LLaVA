@@ -28,3 +28,5 @@ evalai
 # eval
 openpyxl # used by convert_mmbench_for_submission.py
 openai # mm-vet
+#
+tabulate # df.to_markdown()
