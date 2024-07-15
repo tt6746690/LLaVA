@@ -1,3 +1,6 @@
+playground/data/*
+playground/answers_upload
+
 # Python
 __pycache__
 *.pyc

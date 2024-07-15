@@ -13,6 +13,72 @@ from llava.constants import LOGDIR
 from llava.utils import (build_logger, server_error_msg,
     violates_moderation, moderation_msg)
 import hashlib
+from moviepy.editor import VideoFileClip
+import math, cv2
+import numpy as np
+from PIL import Image
+
+
+def process_video_as_image_grids(video_path):
+    frame_fixed_number = 6
+    video_capture = VideoFileClip(video_path)
+    fps = video_capture.fps
+
+    total_frames = int(video_capture.reader.nframes)
+    # video_length = total_frames / fps
+
+    frame_count = 0
+    output_frame_index = 0
+    list_frame_data = []
+
+
+
+    frames_per_interval = math.floor(total_frames / frame_fixed_number)
+
+    frames = video_capture.iter_frames()
+
+    for frame in frames:
+        if frame_count % frames_per_interval == 0:
+                start = output_frame_index * frames_per_interval
+                frame_index_selected = start
+
+        if frame_index_selected == frame_count:
+                list_frame_data.append(frame)
+                output_frame_index += 1
+
+        if len(list_frame_data) == frame_fixed_number:
+                break
+
+        if frame_count == total_frames:
+                break
+
+        frame_count += 1
+
+    images = list_frame_data
+
+
+    func_max_per_row = lambda x: round(math.sqrt(x))
+    max_images_per_row = func_max_per_row(len(images))
+
+    min_width = min(img.shape[1] for img in images)
+    min_height = min(img.shape[0] for img in images)
+    resized_images = [cv2.resize(img, (min_width, min_height)) for img in images]
+
+    while len(resized_images) % max_images_per_row != 0:
+        resized_images.append(
+                np.ones((min_height, min_width, 3), dtype=np.uint8) * 255
+        )
+
+    image_rows = [
+    resized_images[i : i + max_images_per_row]
+    for i in range(0, len(resized_images), max_images_per_row)
+    ]
+    concatenated_rows = [np.hstack(row) for row in image_rows]
+
+    grid_image = np.vstack(concatenated_rows)
+    grid_image = Image.fromarray(grid_image)
+
+    return grid_image
 
 
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
@@ -28,6 +94,14 @@ priority = {
     "koala-13b": "aaaaaab",
 }
 
+
+scale2tokens = {
+    1: 1,
+    2: 9,
+    3: 36,
+    4: 144,
+    5: 576
+}
 
 def get_conv_log_filename():
     t = datetime.datetime.now()
@@ -125,8 +199,27 @@ def clear_history(request: gr.Request):
     return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 5
 
 
-def add_text(state, text, image, image_process_mode, request: gr.Request):
+def add_text(state, text, image, video, image_process_mode, request: gr.Request):
     logger.info(f"add_text. ip: {request.client.host}. len: {len(text)}")
+    has_image = image is not None
+    has_video = video is not None
+    # prefix_video = 'Given the video represented as a collage of six images. Answer: '
+    prefix_video = 'Based on the provided video in the form of a collage of six images, answer: '
+    if image:
+        video = None
+    if video and len(state.messages) == 0:
+        image = process_video_as_image_grids(video)
+        text = prefix_video + text
+        print(text)
+    elif video and len(state.messages) > 0:
+        image_org = state.messages[0][1][1]
+        image_now = process_video_as_image_grids(video)
+        if image_now != image_org:
+            state = default_conversation.copy()
+            image = image_now
+            text = prefix_video + text
+            print(text)
+        # type(image) == PIL.Image.Image
     if len(text) <= 0 and image is None:
         state.skip_next = True
         return (state, state.to_gradio_chatbot(), "", None) + (no_change_btn,) * 5
@@ -148,10 +241,10 @@ def add_text(state, text, image, image_process_mode, request: gr.Request):
     state.append_message(state.roles[0], text)
     state.append_message(state.roles[1], None)
     state.skip_next = False
-    return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 5
+    return (state, state.to_gradio_chatbot(), "", None, video) + (disable_btn,) * 5
 
 
-def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request: gr.Request):
+def http_bot(state, model_selector, temperature, top_p, max_new_tokens, matryoshka_vis_token_scale, request: gr.Request):
     logger.info(f"http_bot. ip: {request.client.host}")
     start_tstamp = time.time()
     model_name = model_selector
@@ -236,6 +329,7 @@ def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request:
         "max_new_tokens": min(int(max_new_tokens), 1536),
         "stop": state.sep if state.sep_style in [SeparatorStyle.SINGLE, SeparatorStyle.MPT] else state.sep2,
         "images": f'List of {len(state.get_images())} images: {all_image_hash}',
+        "matryoshka_vis_token_scale": scale2tokens[matryoshka_vis_token_scale] # matryoshka_vis_token_scale
     }
     logger.info(f"==== request ====\n{pload}")
 
@@ -286,20 +380,23 @@ def http_bot(state, model_selector, temperature, top_p, max_new_tokens, request:
         fout.write(json.dumps(data) + "\n")
 
 title_markdown = ("""
-# 🌋 LLaVA: Large Language and Vision Assistant
-[[Project Page](https://llava-vl.github.io)] [[Code](https://github.com/haotian-liu/LLaVA)] [[Model](https://github.com/haotian-liu/LLaVA/blob/main/docs/MODEL_ZOO.md)] | 📚 [[LLaVA](https://arxiv.org/abs/2304.08485)] [[LLaVA-v1.5](https://arxiv.org/abs/2310.03744)] [[LLaVA-v1.6](https://llava-vl.github.io/blog/2024-01-30-llava-1-6/)]
+# 🪆 M3: Matryoshka Multimodal Models
+[[Project Page](https://matryoshka-mm.github.io/)] [[Code](https://github.com/mu-cai/matryoshka-mm)] [[Model](https://github.com/mu-cai/matryoshka-mm/blob/main/docs/MODEL_ZOO.md)] | 📚 [Paper](https://arxiv.org/abs/2405.17430)]
 """)
 
 tos_markdown = ("""
+<p style="font-size: 20px; font-weight: bold;">Given CLIP-ViT-L-336, scale 1 corresponds to 1 token, scale 2 -> 9 tokens, scale 3 -> 36 tokens, scale 4 -> 144 tokens, scale 5 -> 576 tokens.</p>
+""")
+
+
+
+learn_more_markdown = ("""
 ### Terms of use
 By using this service, users are required to agree to the following terms:
 The service is a research preview intended for non-commercial use only. It only provides limited safety measures and may generate offensive content. It must not be used for any illegal, harmful, violent, racist, or sexual purposes. The service may collect user dialogue data for future research.
 Please click the "Flag" button if you get any inappropriate answer! We will collect those to keep improving our moderator.
 For an optimal experience, please use desktop computers for this demo, as mobile devices may compromise its quality.
-""")
 
-
-learn_more_markdown = ("""
 ### License
 The service is a research preview intended for non-commercial use only, subject to the model [License](https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md) of LLaMA, [Terms of Use](https://openai.com/policies/terms-of-use) of the data generated by OpenAI, and [Privacy Practices](https://chrome.google.com/webstore/detail/sharegpt-share-your-chatg/daiacboceoaocpibfodeljbdfacokfjb) of ShareGPT. Please contact us if you find any potential violation.
 """)
@@ -329,8 +426,10 @@ def build_demo(embed_mode, cur_dir=None, concurrency_count=10):
                         interactive=True,
                         show_label=False,
                         container=False)
-
+                height = 280
                 imagebox = gr.Image(type="pil")
+                videobox = gr.Video(label="Video")
+                
                 image_process_mode = gr.Radio(
                     ["Crop", "Resize", "Pad", "Default"],
                     value="Default",
@@ -338,11 +437,27 @@ def build_demo(embed_mode, cur_dir=None, concurrency_count=10):
 
                 if cur_dir is None:
                     cur_dir = os.path.dirname(os.path.abspath(__file__))
+                with gr.Accordion("Matryoshka Visual Token Scale", open=True) as parameter_row:
+                    matryoshka_vis_token_scale = gr.Slider(minimum=1, maximum=5, step=1, value=5, interactive=True,  label="Slider (1: coarsest; 5: finest)")
                 gr.Examples(examples=[
-                    [f"{cur_dir}/examples/extreme_ironing.jpg", "What is unusual about this image?"],
+                    [f"{cur_dir}/examples/m3-demo-1.jpg", "Describe this image for me."],
                     [f"{cur_dir}/examples/waterview.jpg", "What are the things I should be cautious about when I visit here?"],
                 ], inputs=[imagebox, textbox])
-
+                
+                gr.Examples(
+                    examples=[
+                        [
+                            f"{cur_dir}/examples/sample_demo_1.mp4",
+                            "Why is this video funny?",
+                        ],
+                        [
+                            f"{cur_dir}/examples/sample_demo_3.mp4",
+                            "Can you identify any safety hazards in this video?"
+                        ],
+                    ],
+                    inputs=[videobox, textbox],
+                )
+                    
                 with gr.Accordion("Parameters", open=False) as parameter_row:
                     temperature = gr.Slider(minimum=0.0, maximum=1.0, value=0.2, step=0.1, interactive=True, label="Temperature",)
                     top_p = gr.Slider(minimum=0.0, maximum=1.0, value=0.7, step=0.1, interactive=True, label="Top P",)
@@ -351,8 +466,8 @@ def build_demo(embed_mode, cur_dir=None, concurrency_count=10):
             with gr.Column(scale=8):
                 chatbot = gr.Chatbot(
                     elem_id="chatbot",
-                    label="LLaVA Chatbot",
-                    height=650,
+                    label="LLaVA-M3 Chatbot",
+                    height=750,
                     layout="panel",
                 )
                 with gr.Row():
@@ -367,10 +482,10 @@ def build_demo(embed_mode, cur_dir=None, concurrency_count=10):
                     #stop_btn = gr.Button(value="⏹️  Stop Generation", interactive=False)
                     regenerate_btn = gr.Button(value="🔄  Regenerate", interactive=False)
                     clear_btn = gr.Button(value="🗑️  Clear", interactive=False)
+                
+                gr.Markdown(tos_markdown)
+                gr.Markdown(learn_more_markdown)
 
-        if not embed_mode:
-            gr.Markdown(tos_markdown)
-            gr.Markdown(learn_more_markdown)
         url_params = gr.JSON(visible=False)
 
         # Register listeners
@@ -397,7 +512,7 @@ def build_demo(embed_mode, cur_dir=None, concurrency_count=10):
             [state, chatbot, textbox, imagebox] + btn_list
         ).then(
             http_bot,
-            [state, model_selector, temperature, top_p, max_output_tokens],
+            [state, model_selector, temperature, top_p, max_output_tokens, matryoshka_vis_token_scale],
             [state, chatbot] + btn_list,
             concurrency_limit=concurrency_count
         )
@@ -405,29 +520,29 @@ def build_demo(embed_mode, cur_dir=None, concurrency_count=10):
         clear_btn.click(
             clear_history,
             None,
-            [state, chatbot, textbox, imagebox] + btn_list,
+            [state, chatbot, textbox, imagebox, videobox] + btn_list,
             queue=False
         )
 
         textbox.submit(
             add_text,
-            [state, textbox, imagebox, image_process_mode],
-            [state, chatbot, textbox, imagebox] + btn_list,
+            [state, textbox, imagebox, videobox,  image_process_mode],
+            [state, chatbot, textbox, imagebox, videobox] + btn_list,
             queue=False
         ).then(
             http_bot,
-            [state, model_selector, temperature, top_p, max_output_tokens],
+            [state, model_selector, temperature, top_p, max_output_tokens, matryoshka_vis_token_scale],
             [state, chatbot] + btn_list,
             concurrency_limit=concurrency_count
         )
 
         submit_btn.click(
             add_text,
-            [state, textbox, imagebox, image_process_mode],
-            [state, chatbot, textbox, imagebox] + btn_list
+            [state, textbox, imagebox, videobox, image_process_mode],
+            [state, chatbot, textbox, imagebox, videobox] + btn_list
         ).then(
             http_bot,
-            [state, model_selector, temperature, top_p, max_output_tokens],
+            [state, model_selector, temperature, top_p, max_output_tokens, matryoshka_vis_token_scale],
             [state, chatbot] + btn_list,
             concurrency_limit=concurrency_count
         )
